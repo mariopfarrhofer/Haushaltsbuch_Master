@@ -1,0 +1,1173 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wasserverbrauch Dashboard</title>
+    
+    <!-- Google Fonts for Modern Typography & Monospace Numbers -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Roboto+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    
+    <!-- SheetJS & Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+    <style>
+        :root {
+            --bg-color: #0d1117;
+            --card-bg: #161b22;
+            --border-color: #30363d;
+            --text-primary: #c9d1d9;
+            --text-secondary: #8b949e;
+            --accent-blue: #58a6ff;
+            --accent-green: #2ea043;
+            --accent-red: #f85149;
+            --accent-purple: #bc8cff;
+            --font-main: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            --font-mono: 'Roboto Mono', monospace;
+            --num-persons: 2;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            font-family: var(--font-main);
+            line-height: 1.5;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1300px;
+            margin: 0 auto;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        h1, h2, h3 {
+            font-weight: 600;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            overflow-x: auto;
+        }
+
+        /* Top Actions */
+        .top-actions {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            background-color: var(--card-bg);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 8px 16px;
+            cursor: pointer;
+            font-family: var(--font-main);
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        button:hover {
+            background-color: var(--border-color);
+            border-color: #8b949e;
+        }
+        
+        button.primary {
+            background-color: #238636;
+            border-color: rgba(240,246,252,0.1);
+            color: #ffffff;
+        }
+        
+        button.primary:hover {
+            background-color: #2ea043;
+        }
+
+        /* Drag & Drop */
+        .drop-zone {
+            border: 2px dashed var(--border-color);
+            border-radius: 8px;
+            padding: 30px;
+            text-align: center;
+            cursor: pointer;
+            transition: border-color 0.3s;
+            margin-bottom: 20px;
+            color: var(--text-secondary);
+        }
+
+        .drop-zone:hover, .drop-zone.dragover {
+            border-color: var(--accent-blue);
+            background-color: rgba(88, 166, 255, 0.05);
+            color: var(--accent-blue);
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        /* Manual Input */
+        .manual-input-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: end;
+        }
+
+        .input-group {
+            flex: 1;
+            min-width: 150px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 4px;
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .input-group input, .input-group select {
+            width: 100%;
+            background-color: var(--bg-color);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-family: var(--font-main);
+            outline: none;
+        }
+
+        .input-group select {
+            appearance: none;
+            cursor: pointer;
+        }
+        
+        .input-group input[type="number"], .input-group input[type="date"] {
+            font-family: var(--font-mono);
+        }
+
+        .input-group input:focus, .input-group select:focus {
+            border-color: var(--accent-blue);
+        }
+
+        /* KPIs */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .kpi-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .kpi-title {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+
+        .kpi-value {
+            font-size: 28px;
+            font-weight: 700;
+            font-family: var(--font-mono);
+            color: var(--text-primary);
+        }
+        
+        .kpi-sub {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .trend-up { color: var(--accent-red); }
+        .trend-down { color: var(--accent-green); }
+        .trend-neutral { color: var(--text-secondary); }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 20px;
+        }
+
+        .tab-btn {
+            background: transparent;
+            border: none;
+            border-bottom: 2px solid transparent;
+            border-radius: 0;
+            padding: 10px 16px;
+            color: var(--text-secondary);
+            font-weight: 500;
+            margin-bottom: -1px;
+        }
+
+        .tab-btn:hover {
+            color: var(--text-primary);
+            background: transparent;
+            border-bottom: 2px solid var(--border-color);
+        }
+
+        .tab-btn.active {
+            color: var(--text-primary);
+            border-bottom: 2px solid var(--accent-blue);
+        }
+
+        .tab-content {
+            display: none;
+            height: 400px;
+            position: relative;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Table */
+        .table-responsive {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            font-size: 14px;
+            min-width: 900px;
+        }
+
+        th, td {
+            padding: 12px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        th {
+            color: var(--text-secondary);
+            font-weight: 500;
+            background-color: var(--card-bg);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        
+        td.num {
+            font-family: var(--font-mono);
+        }
+
+        tbody tr:hover {
+            background-color: rgba(255,255,255,0.03);
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .badge.green { background: rgba(46, 160, 67, 0.15); color: #3fb950; }
+        .badge.blue { background: rgba(88, 166, 255, 0.15); color: #79c0ff; }
+        .badge.red { background: rgba(248, 81, 73, 0.15); color: #ff7b72; }
+        .badge.purple { background: rgba(188, 140, 255, 0.15); color: #d2a8ff; border: 1px solid rgba(188,140,255,0.3); }
+
+        .hidden {
+            display: none !important;
+        }
+
+        /* Print CSS - Enhanced for Landscape & Readability */
+        @media print {
+            body {
+                background-color: white !important;
+                color: black !important;
+                padding: 0;
+                font-size: 11pt; /* slightly larger for readability */
+            }
+            .no-print, header button, .drop-zone, .top-actions, .manual-input-grid, .card button {
+                display: none !important;
+            }
+            .card {
+                background: white !important;
+                border: none !important;
+                box-shadow: none !important;
+                break-inside: avoid;
+                margin-bottom: 20px;
+                padding: 0;
+            }
+            .kpi-title, .kpi-sub { color: #333 !important; }
+            .kpi-value { color: black !important; font-size: 18pt; }
+            
+            .tab-btn { display: none !important; }
+            .tab-content { display: block !important; height: auto !important; margin-bottom: 30px; page-break-inside: avoid; }
+            canvas { max-width: 100% !important; height: 350px !important; }
+            
+            table {
+                width: 100%;
+                border-collapse: collapse;
+                border: 1px solid #000;
+            }
+            th, td {
+                border: 1px solid #aaa !important;
+                padding: 8px 6px;
+                color: black !important;
+            }
+            th {
+                background: #f0f0f0 !important;
+                font-weight: bold;
+                border: 1px solid #000 !important;
+            }
+            .badge {
+                border: 1px solid #555 !important;
+                background: white !important;
+                color: black !important;
+                border-radius: 4px;
+            }
+            tr {
+                page-break-inside: avoid !important;
+            }
+
+            * {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+            
+            #print-container {
+                display: block;
+            }
+            
+            #print-summary-board {
+                display: block !important; /* Only visible in print */
+                margin-bottom: 20px;
+                padding: 15px;
+                background: #f9f9f9 !important;
+                border: 2px solid #333 !important;
+            }
+
+            @page {
+                size: A4 landscape;
+                margin: 1cm;
+            }
+        }
+        
+        #print-container {
+            display: none;
+            margin-bottom: 20px;
+        }
+        
+        .print-active #print-container {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            background: var(--card-bg);
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+        
+        #print-summary-board {
+            display: none;
+        }
+        
+        .print-active-summary {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+        
+        .summary-box strong {
+            display: block;
+            font-size: 18px;
+            font-family: var(--font-mono);
+            margin-top: 5px;
+        }
+
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <div>
+            <h1>Wasserverbrauch Dashboard</h1>
+            <p style="color: var(--text-secondary); font-size: 14px;" id="record-count-label">0 Ablesungen geladen</p>
+        </div>
+        <div class="top-actions no-print">
+            <button onclick="loadDemoData()">Demo-Daten laden</button>
+            <button onclick="clearData()" style="color: var(--accent-red); border-color: rgba(248,81,73,0.3);">Daten löschen</button>
+            <button class="primary" onclick="togglePrintMode()">PDF-Export / Drucken</button>
+        </div>
+    </header>
+
+    <div id="print-container" class="no-print">
+        <div class="input-group">
+            <label>Von Datum:</label>
+            <input type="date" id="print-from" onchange="updatePrintSummary()">
+        </div>
+        <div class="input-group">
+            <label>Bis Datum:</label>
+            <input type="date" id="print-to" onchange="updatePrintSummary()">
+        </div>
+        <button class="primary" onclick="executePrint()">Jetzt Drucken</button>
+        <button onclick="togglePrintMode()">Abbrechen</button>
+    </div>
+    
+    <!-- This summary is populated during print preparation -->
+    <div id="print-summary-board">
+        <h3>Druck-Zusammenfassung</h3>
+        <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 12px;" id="print-summary-period"></p>
+        <div class="print-active-summary">
+            <div class="summary-box">Standard-Verbrauch: <strong id="print-sum-normal">0 m³</strong></div>
+            <div class="summary-box">Untere Wohneinheit (Mehrverbrauch): <strong id="print-sum-mehr" style="color:var(--accent-purple)">0 m³</strong></div>
+            <div class="summary-box">Gesamtverbrauch Periode: <strong id="print-sum-total">0 m³</strong></div>
+        </div>
+    </div>
+
+    <div class="card drop-zone no-print" id="drop-zone" onclick="document.getElementById('file-input').click()">
+        <h3>Excel-Datei hier ablegen oder klicken</h3>
+        <p>Erlaubt sind .xlsx Dateien. Spalten: A=Datum (TT.MM.JJJJ), B=Zählerstand, C=Aktion ("open", "close").</p>
+        <input type="file" id="file-input" accept=".xlsx, .xls" onchange="handleFileUpload(event)">
+    </div>
+
+    <!-- KPIs -->
+    <div class="kpi-grid">
+        <div class="kpi-card">
+            <span class="kpi-title">Letzter Zählerstand</span>
+            <span class="kpi-value" id="kpi-last-val">0 <span style="font-size:16px">m³</span></span>
+            <span class="kpi-sub" id="kpi-last-date">-</span>
+        </div>
+        <div class="kpi-card">
+            <span class="kpi-title">Ø Hausverbrauch / Monat</span>
+            <span class="kpi-value" id="kpi-avg-month">0.00</span>
+            <span class="kpi-sub">Gesamt ohne Mehrverbrauch</span>
+        </div>
+        <div class="kpi-card">
+            <span class="kpi-title">Gesamter Mehrverbrauch</span>
+            <span class="kpi-value" id="kpi-total-mehr" style="color:var(--accent-purple);">0.00 <span style="font-size:16px">m³</span></span>
+            <span class="kpi-sub">Durch untere Wohneinheit ("open")</span>
+        </div>
+        <div class="kpi-card">
+            <span class="kpi-title">Jahreshochrechnung</span>
+            <span class="kpi-value" id="kpi-proj">0 <span style="font-size:16px">m³</span></span>
+            <span class="kpi-sub">Für aktuelles Jahr (ink. aktuellem Status)</span>
+        </div>
+    </div>
+
+    <!-- Charts -->
+    <div class="card">
+        <div class="tabs no-print">
+            <button class="tab-btn active" onclick="switchTab('chart-monthly', this)">Monatlich (inkl. Mehrverbrauch)</button>
+            <button class="tab-btn" onclick="switchTab('chart-quarterly', this)">Quartale</button>
+            <button class="tab-btn" onclick="switchTab('chart-yearly', this)">Jahrestotale</button>
+            <button class="tab-btn" onclick="switchTab('chart-trend', this)">Tages-Trend</button>
+        </div>
+
+        <div id="chart-monthly" class="tab-content active"><canvas id="canvasMonthly"></canvas></div>
+        <div id="chart-quarterly" class="tab-content"><canvas id="canvasQuarterly"></canvas></div>
+        <div id="chart-yearly" class="tab-content"><canvas id="canvasYearly"></canvas></div>
+        <div id="chart-trend" class="tab-content"><canvas id="canvasTrend"></canvas></div>
+    </div>
+
+    <!-- Manual Input -->
+    <div class="card no-print">
+        <h3>Manuelle Ablesung / Aktion hinzufügen</h3>
+        <div class="manual-input-grid" style="margin-top: 16px;">
+            <div class="input-group">
+                <label>Datum</label>
+                <input type="date" id="manual-date" required>
+            </div>
+            <div class="input-group">
+                <label>Zählerstand (m³)</label>
+                <input type="number" id="manual-val" step="0.01" min="0" required>
+            </div>
+            <div class="input-group">
+                <label>Wohneinheit (Aktion) an diesem Datum</label>
+                <select id="manual-action">
+                    <option value="">-- Keine Änderung --</option>
+                    <option value="open">Geöffnet (Wasser runtergeschalten)</option>
+                    <option value="close">Geschlossen (Wasser hochgeschalten)</option>
+                </select>
+            </div>
+            <div class="input-group">
+                <label>Notiz (Optional)</label>
+                <input type="text" id="manual-note" placeholder="z.B. Urlaub">
+            </div>
+            <div class="input-group" style="align-items: end;">
+                <button class="primary" style="width: 100%;" onclick="addManualReading()">Hinzufügen</button>
+            </div>
+        </div>
+        <p id="manual-error" style="color: var(--accent-red); font-size: 13px; margin-top: 8px; display: none;"></p>
+    </div>
+
+    <!-- Table -->
+    <div class="card">
+        <h3 style="margin-bottom: 16px;">Historie</h3>
+        <div class="table-responsive">
+            <table id="readings-table">
+                <thead>
+                    <tr>
+                        <th>Datum</th>
+                        <th>Aktion am<br>Zichtag</th>
+                        <th>Status im<br>Folgezeitraum</th>
+                        <th>Zählerstand<br>(m³)</th>
+                        <th>Verbrauch<br>(m³)</th>
+                        <th>Tage</th>
+                        <th>Ø m³ / Tag</th>
+                        <th>Mehrverbrauch<br>(m³)</th>
+                        <th class="no-print">Menü</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- JS populate -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    // Data state
+    let readings = []; // Array of { date: String (YYYY-MM-DD), value: Number, note: String, action: String }
+    let chartInstances = {};
+
+    let currentPrintData = []; // State holder for print view
+
+    // --- Core Logic ---
+    
+    // Process input data: sort and compute derived values, including "open/close" state
+    function processData(data) {
+        // Remove duplicates by date, sorting newest first temporally for deduplication
+        // If there's a conflict on the exact same date, we take the one that has an explicit action or higher value
+        const unique = {};
+        data.forEach(d => {
+            if(!unique[d.date] || (d.action !== '' && unique[d.date].action === '')) {
+                unique[d.date] = d;
+            } else if (unique[d.date] && unique[d.date].value < d.value) {
+                unique[d.date].value = d.value;
+                if(d.action) unique[d.date].action = d.action; // Merge action if available
+            }
+        });
+        
+        // Sort oldest to newest to compute intervals properly
+        let sorted = Object.values(unique).sort((a, b) => new Date(a.date) - new Date(b.date));
+        
+        let isCurrentlyOpen = false;
+
+        // Pass 1: Set intervals and basic consumption
+        for (let i = 0; i < sorted.length; i++) {
+            let r = sorted[i];
+            
+            // Previous state defines the consumption type for this interval
+            r.isOpenPeriod = isCurrentlyOpen;
+
+            if (i === 0) {
+                r.consumption = 0;
+                r.days = 0;
+                r.avgPerDay = 0;
+            } else {
+                let prev = sorted[i-1];
+                let diffVal = r.value - prev.value;
+                let diffTime = new Date(r.date) - new Date(prev.date);
+                let diffDays = diffTime / (1000 * 3600 * 24);
+                
+                r.consumption = diffVal;
+                r.days = diffDays;
+                r.avgPerDay = diffDays > 0 ? diffVal / diffDays : 0;
+            }
+
+            // After calculating the interval up to THIS point, apply any new action to the FORWARD state
+            if (r.action && r.action.toLowerCase() === 'open') {
+                isCurrentlyOpen = true;
+            } else if (r.action && r.action.toLowerCase() === 'close') {
+                isCurrentlyOpen = false;
+            }
+        }
+
+        // Pass 2: Calculate the "Normal" base consumption across the entire household history (when closed)
+        let normalCons = 0;
+        let normalDays = 0;
+        sorted.forEach(r => {
+            if (r.days > 0 && !r.isOpenPeriod) {
+                normalCons += r.consumption;
+                normalDays += r.days;
+            }
+        });
+        const normalAvgPerDay = normalDays > 0 ? normalCons / normalDays : 0;
+
+        // Pass 3: Calculate Mehrverbrauch for periods that were "open"
+        sorted.forEach(r => {
+            if (r.days > 0 && r.isOpenPeriod && normalAvgPerDay > 0) {
+                let expectedNorm = normalAvgPerDay * r.days;
+                let diff = r.consumption - expectedNorm;
+                r.mehrverbrauch = diff > 0 ? diff : 0;
+            } else {
+                r.mehrverbrauch = 0;
+            }
+            // For general calculations
+            r.baseConsumption = r.consumption - r.mehrverbrauch;
+        });
+        
+        // Return descending for optimal UI viewing (newest on top)
+        return sorted.reverse();
+    }
+
+    function updateUI() {
+        readings = processData(readings);
+        document.getElementById('record-count-label').innerText = `${readings.length} Ablesungen geladen`;
+        
+        saveData();
+        renderTable(readings);
+        updateKPIs(readings);
+        renderCharts(readings);
+        
+        if (document.body.classList.contains('print-active')) {
+            updatePrintSummary();
+        }
+    }
+
+    // --- LocalStorage ---
+    function saveData() {
+        localStorage.setItem('waterDataV2', JSON.stringify(readings.map(r => ({ date: r.date, value: r.value, note: r.note, action: r.action }))));
+    }
+
+    function loadData() {
+        const stored = localStorage.getItem('waterDataV2');
+        if (stored) {
+            readings = JSON.parse(stored);
+            updateUI();
+        } else {
+            // Check legacy
+            const legacy = localStorage.getItem('waterData');
+            if (legacy) {
+                readings = JSON.parse(legacy).map(r => ({...r, action: ''}));
+                updateUI();
+            } else {
+                 updateUI();
+            }
+        }
+    }
+
+    function clearData() {
+        if(confirm("Wirklich alle Daten löschen?")) {
+            readings = [];
+            updateUI();
+        }
+    }
+
+    // --- Demo Data ---
+    function loadDemoData() {
+        let demo = [];
+        let baseDate = new Date();
+        baseDate.setDate(1); 
+        baseDate.setMonth(baseDate.getMonth() - 24); 
+        
+        let val = 1450.5;
+        
+        for (let i = 0; i <= 24; i++) {
+            let d = new Date(baseDate);
+            d.setMonth(d.getMonth() + i);
+            
+            let action = "";
+            let monthCons = 9 + Math.random() * 2; // base consumption ~9-11
+            
+            // Open for 4 months in summer
+            if (i === 5 || i === 17) {
+                action = "open";
+            }
+            // Close after summer
+            if (i === 9 || i === 21) {
+                action = "close";
+            }
+            
+            // add Mehrverbrauch to the actual value if it's currently an open interval
+            // which implies indices 6,7,8,9  and 18,19,20,21
+            if ((i > 5 && i <= 9) || (i > 17 && i <= 21)) {
+                monthCons += 15 + Math.random() * 5; // significant extra usage
+            }
+            
+            if (i > 0) val += monthCons;
+            
+            demo.push({
+                date: d.toISOString().split('T')[0],
+                value: parseFloat(val.toFixed(2)),
+                note: i === 0 ? "Start" : "",
+                action: action
+            });
+        }
+        
+        readings = [...readings, ...demo];
+        updateUI();
+    }
+
+    // --- Formatting ---
+    function fmtNum(num, desc=2) {
+        if(isNaN(num) || num === null) return '-';
+        return num.toLocaleString('de-DE', { minimumFractionDigits: desc, maximumFractionDigits: desc });
+    }
+    
+    function fmtDate(isoStr) {
+        if(!isoStr) return '-';
+        const d = new Date(isoStr);
+        return d.toLocaleDateString('de-DE');
+    }
+
+    // --- UI Updaters ---
+    function getStatusBadge(avgPerDay) {
+        if (avgPerDay === 0) return {c: 'blue', t: '-'};
+        if (avgPerDay < 0.25) return {c: 'green', t: 'Niedrig'}; 
+        if (avgPerDay > 0.45) return {c: 'red', t: 'Hoch'};      
+        return {c: 'blue', t: 'Normal'};
+    }
+
+    function renderTable(dataArray) {
+        const tbody = document.querySelector('#readings-table tbody');
+        tbody.innerHTML = '';
+        
+        dataArray.forEach((r, idx) => {
+            const tr = document.createElement('tr');
+            
+            let actionBadgeStr = '';
+            if (r.action === 'open') actionBadgeStr = '<span class="badge purple">Geöffnet</span>';
+            else if (r.action === 'close') actionBadgeStr = '<span class="badge blue">Geschlossen</span>';
+            
+            let statusText = r.days === 0 ? '-' : (r.isOpenPeriod ? 'Gemeinsam' : 'Standard');
+            let statusBadge = r.isOpenPeriod ? `<span class="badge purple" style="background:transparent; border-color:transparent;">+ ${statusText}</span>` : `<span style="color:var(--text-secondary); font-size:12px;">${statusText}</span>`;
+
+            let mehrverbrauchStr = '';
+            if (r.mehrverbrauch > 0) {
+                mehrverbrauchStr = `<span class="badge purple">+ ${fmtNum(r.mehrverbrauch, 2)}</span>`;
+            } else {
+                mehrverbrauchStr = '-';
+            }
+            
+            let delBtn = `<button class="no-print" style="padding: 2px 6px; font-size:12px; border-color:transparent; background:transparent; color: var(--accent-red);" onclick="deleteReading('${r.date}')">✖</button>`;
+            
+            tr.innerHTML = `
+                <td>${fmtDate(r.date)} ${r.note ? `<br><small style="color:var(--text-secondary)">${r.note}</small>` : ''}</td>
+                <td>${actionBadgeStr}</td>
+                <td>${statusBadge}</td>
+                <td class="num">${fmtNum(r.value, 2)}</td>
+                <td class="num">${r.days > 0 ? fmtNum(r.consumption, 2) : '-'}</td>
+                <td class="num">${r.days > 0 ? fmtNum(r.days, 0) : '-'}</td>
+                <td class="num">${r.days > 0 ? fmtNum(r.avgPerDay, 3) : '-'}</td>
+                <td class="num">${mehrverbrauchStr}</td>
+                <td class="no-print">${delBtn}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function deleteReading(dateStr) {
+        readings = readings.filter(r => r.date !== dateStr);
+        updateUI();
+    }
+
+    function updateKPIs(dataArray) {
+        if (dataArray.length === 0) {
+            document.getElementById('kpi-last-val').innerHTML = `0 <span style="font-size:16px">m³</span>`;
+            document.getElementById('kpi-last-date').innerText = '-';
+            document.getElementById('kpi-avg-month').innerText = '0.00';
+            document.getElementById('kpi-total-mehr').innerText = `0.00`;
+            document.getElementById('kpi-proj').innerHTML = `0 <span style="font-size:16px">m³</span>`;
+            return;
+        }
+
+        const last = dataArray[0]; // Newest
+        document.getElementById('kpi-last-val').innerHTML = `${fmtNum(last.value, 1)} <span style="font-size:16px">m³</span>`;
+        document.getElementById('kpi-last-date').innerText = `Am ${fmtDate(last.date)}`;
+
+        let totalNormCons = 0;
+        let totalNormDays = 0;
+        let totalMehrverbrauch = 0;
+        
+        dataArray.forEach(r => {
+            if (r.days > 0) {
+                totalMehrverbrauch += (r.mehrverbrauch || 0);
+                if (!r.isOpenPeriod) {
+                    totalNormCons += r.consumption;
+                    totalNormDays += r.days;
+                }
+            }
+        });
+
+        // House Normal Avg
+        const overallNormDay = totalNormDays > 0 ? totalNormCons / totalNormDays : 0;
+        const avgNormMonth = overallNormDay * 30.4368;
+        document.getElementById('kpi-avg-month').innerText = fmtNum(avgNormMonth, 2);
+        
+        document.getElementById('kpi-total-mehr').innerHTML = `${fmtNum(totalMehrverbrauch, 1)} <span style="font-size:16px">m³</span>`;
+        
+        // Yearly projection uses normal consumption. If currently open, we don't project Mehrverbrauch over the whole year unless requested, 
+        // but simplest is just project the baseline. Or just overall avg including everything. Let's do overall average for simplicity:
+        let grandTotalCons = 0;
+        let grandTotalDays = 0;
+        dataArray.forEach(r => {
+           if(r.days > 0) { grandTotalCons += r.consumption; grandTotalDays += r.days; } 
+        });
+        let overallAvgDay = grandTotalDays > 0 ? grandTotalCons / grandTotalDays : 0;
+        let proj = overallAvgDay * 365;
+        
+        document.getElementById('kpi-proj').innerHTML = `${fmtNum(proj, 0)} <span style="font-size:16px">m³</span>`;
+    }
+
+    // --- Manual Input ---
+    function addManualReading() {
+        const dateStr = document.getElementById('manual-date').value;
+        const valStr = document.getElementById('manual-val').value;
+        const actionStr = document.getElementById('manual-action').value;
+        const note = document.getElementById('manual-note').value;
+        const err = document.getElementById('manual-error');
+        
+        err.style.display = 'none';
+
+        if(!dateStr || !valStr) {
+            err.innerText = "Bitte Datum und Zählerstand ausfüllen.";
+            err.style.display = 'block';
+            return;
+        }
+
+        const val = parseFloat(valStr);
+        
+        // Push and update - the sort takes care of order. A strict validation for manual entry could be complex,
+        // we trust the user for historical inputs or prompt if obviously lower chronologically, but since we support history editing, we allow insertion.
+        readings.push({ date: dateStr, value: val, action: actionStr, note: note });
+        updateUI();
+
+        // Clear
+        document.getElementById('manual-date').value = '';
+        document.getElementById('manual-val').value = '';
+        document.getElementById('manual-action').value = '';
+        document.getElementById('manual-note').value = '';
+    }
+
+    // --- Excel Upload (SheetJS) ---
+    const dropZone = document.getElementById('drop-zone');
+
+    dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.classList.add('dragover');
+    });
+
+    dropZone.addEventListener('dragleave', () => {
+        dropZone.classList.remove('dragover');
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('dragover');
+        if (e.dataTransfer.files.length) {
+            processExcelFile(e.dataTransfer.files[0]);
+        }
+    });
+
+    function handleFileUpload(e) {
+        if (e.target.files.length) {
+            processExcelFile(e.target.files[0]);
+            e.target.value = ''; // Reset
+        }
+    }
+
+    function processExcelFile(file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                
+                let newReadings = [];
+                let countOk = 0;
+
+                workbook.SheetNames.forEach(sheetName => {
+                    const worksheet = workbook.Sheets[sheetName];
+                    const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                    
+                    json.forEach((row, i) => {
+                        // Skip headers typically found on row 0
+                        if (i === 0 && typeof row[0] === 'string' && row[0].toLowerCase().includes('datum')) return; 
+                        
+                        if (row.length >= 2) {
+                            let rawStr = row[0];
+                            let rawVal = row[1];
+                            let rawAct = row[2] ? String(row[2]).toLowerCase().trim() : '';
+                            
+                            // Map 'open' / 'close'
+                            let validAct = '';
+                            if (rawAct.includes('open') || rawAct === 'auf') validAct = 'open';
+                            if (rawAct.includes('close') || rawAct === 'zu') validAct = 'close';
+                            
+                            let dateStr = parseDate(rawStr);
+                            let numVal = parseFloat(String(rawVal).replace(',', '.'));
+                            
+                            if (dateStr && !isNaN(numVal)) {
+                                newReadings.push({
+                                    date: dateStr,
+                                    value: numVal,
+                                    action: validAct,
+                                    note: `Import ${sheetName}`
+                                });
+                                countOk++;
+                            }
+                        }
+                    });
+                });
+
+                if (newReadings.length > 0) {
+                    readings = [...readings, ...newReadings];
+                    updateUI();
+                    alert(`${countOk} Ablesungen erfolgreich importiert.`);
+                } else {
+                    alert('Keine gültigen Daten gefunden. Prüfe das Format (A: Datum, B: Zählerstand, C: Aktion).');
+                }
+
+            } catch (err) {
+                console.error(err);
+                alert('Fehler beim Lesen der Excel-Datei.');
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    }
+    
+    // Parse Date TT.MM.JJJJ or Excel Serial Number
+    function parseDate(val) {
+        if (!val) return null;
+        if (typeof val === 'number') {
+            const date = new Date(1899, 11, 30 + val);
+            return isNaN(date.getTime()) ? null : date.toISOString().split('T')[0];
+        }
+        const str = String(val).trim();
+        const re = /^(\d{1,2})\.(\d{1,2})\.(\d{4})$/;
+        const m = str.match(re);
+        if (m) { return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`; }
+        const d = new Date(str);
+        if(!isNaN(d.getTime())) return d.toISOString().split('T')[0];
+        return null;
+    }
+
+    // --- Tabs & Charts ---
+    function switchTab(tabId, btn) {
+        document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById(tabId).classList.add('active');
+    }
+
+    function renderCharts(dataArray) {
+        // Destroy old
+        if(chartInstances.monthly) chartInstances.monthly.destroy();
+        if(chartInstances.quarterly) chartInstances.quarterly.destroy();
+        if(chartInstances.yearly) chartInstances.yearly.destroy();
+        if(chartInstances.trend) chartInstances.trend.destroy();
+        
+        const ascending = [...dataArray].reverse();
+
+        if(ascending.length < 2) return;
+
+        Chart.defaults.color = '#8b949e';
+        Chart.defaults.borderColor = 'rgba(48, 54, 61, 0.5)';
+
+        // 1. Monthly Stacked
+        const months = {};
+        ascending.forEach(r => {
+            if(r.days > 0) {
+               const ym = r.date.substring(0, 7);
+               if(!months[ym]) months[ym] = { base: 0, mehr: 0 };
+               months[ym].base += r.baseConsumption;
+               months[ym].mehr += r.mehrverbrauch;
+            }
+        });
+        
+        const mLabels = Object.keys(months);
+        const mDataBase = mLabels.map(k => months[k].base);
+        const mDataMehr = mLabels.map(k => months[k].mehr);
+
+        chartInstances.monthly = new Chart(document.getElementById('canvasMonthly'), {
+            type: 'bar',
+            data: {
+                labels: mLabels,
+                datasets: [
+                    { label: 'Standard-Verbrauch', data: mDataBase, backgroundColor: 'rgba(88, 166, 255, 0.8)', borderRadius: 4 },
+                    { label: 'Mehrverbrauch', data: mDataMehr, backgroundColor: 'rgba(188, 140, 255, 0.8)', borderRadius: 4 }
+                ]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                scales: { x: { stacked: true }, y: { stacked: true } }
+            }
+        });
+
+        // 2. Quarterly
+        const quarters = {};
+        mLabels.forEach(ym => {
+            const yr = ym.substring(0, 4);
+            const m = parseInt(ym.substring(5, 7));
+            const q = Math.ceil(m / 3);
+            const label = `${yr}-Q${q}`;
+            if(!quarters[label]) quarters[label] = {base:0, mehr:0};
+            quarters[label].base += months[ym].base;
+            quarters[label].mehr += months[ym].mehr;
+        });
+
+        chartInstances.quarterly = new Chart(document.getElementById('canvasQuarterly'), {
+            type: 'bar',
+            data: {
+                labels: Object.keys(quarters),
+                datasets: [
+                    { label: 'Standard', data: Object.values(quarters).map(v => v.base), backgroundColor: 'rgba(88, 166, 255, 0.7)', borderRadius: 4 },
+                    { label: 'Mehrverbrauch', data: Object.values(quarters).map(v => v.mehr), backgroundColor: 'rgba(188, 140, 255, 0.7)', borderRadius: 4 }
+                ]
+            },
+            options: { responsive: true, maintainAspectRatio: false, scales:{x:{stacked:true}, y:{stacked:true}} }
+        });
+
+        // 3. Yearly
+        const years = {};
+        mLabels.forEach(ym => {
+            const yr = ym.substring(0, 4);
+            if(!years[yr]) years[yr] = {base:0, mehr:0};
+            years[yr].base += months[ym].base;
+            years[yr].mehr += months[ym].mehr;
+        });
+
+        chartInstances.yearly = new Chart(document.getElementById('canvasYearly'), {
+            type: 'bar',
+            data: {
+                labels: Object.keys(years),
+                datasets: [
+                    { label: 'Standard (m³)', data: Object.values(years).map(v=>v.base), backgroundColor: 'rgba(88, 166, 255, 0.8)', borderRadius: 4 },
+                    { label: 'Mehrverbrauch (m³)', data: Object.values(years).map(v=>v.mehr), backgroundColor: 'rgba(188, 140, 255, 0.8)', borderRadius: 4 }
+                ]
+            },
+            options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, scales:{x:{stacked:true}, y:{stacked:true}} }
+        });
+
+        // 4. Trend
+        chartInstances.trend = new Chart(document.getElementById('canvasTrend'), {
+            type: 'line',
+            data: {
+                labels: ascending.filter(r=>r.days > 0).map(r => fmtDate(r.date)),
+                datasets: [{
+                    label: 'Ø m³ / Tag Gesamt',
+                    data: ascending.filter(r=>r.days > 0).map(r => r.avgPerDay),
+                    borderColor: 'rgb(88, 166, 255)',
+                    fill: false,
+                    tension: 0.1,
+                    pointRadius: 2
+                }]
+            },
+            options: { responsive: true, maintainAspectRatio: false }
+        });
+    }
+
+    // --- PDF / Print ---
+    function togglePrintMode() {
+        document.body.classList.toggle('print-active');
+        if(document.body.classList.contains('print-active')) {
+            updatePrintSummary();
+        } else {
+            updateUI(); // restore base
+        }
+    }
+
+    function updatePrintSummary() {
+        const fromD = document.getElementById('print-from').value;
+        const toD = document.getElementById('print-to').value;
+        
+        let filtered = [...readings];
+        let pText = "Gesamter Datenbestand";
+        
+        if (fromD || toD) {
+            if(fromD && toD) pText = `Zeitraum: ${fmtDate(fromD)} bis ${fmtDate(toD)}`;
+            else if(fromD) pText = `Ab: ${fmtDate(fromD)}`;
+            else if(toD) pText = `Bis: ${fmtDate(toD)}`;
+            
+            if(fromD) filtered = filtered.filter(r => new Date(r.date) >= new Date(fromD));
+            if(toD) filtered = filtered.filter(r => new Date(r.date) <= new Date(toD));
+        }
+
+        document.getElementById('print-summary-period').innerText = pText;
+        
+        let sumNorm = 0; let sumMehr = 0;
+        filtered.forEach(r => {
+            if(r.days > 0) {
+                sumNorm += r.baseConsumption;
+                sumMehr += r.mehrverbrauch;
+            }
+        });
+        
+        document.getElementById('print-sum-normal').innerText = `${fmtNum(sumNorm, 2)} m³`;
+        document.getElementById('print-sum-mehr').innerText = `${fmtNum(sumMehr, 2)} m³`;
+        document.getElementById('print-sum-total').innerText = `${fmtNum(sumNorm + sumMehr, 2)} m³`;
+    }
+
+    function executePrint() {
+        const fromD = document.getElementById('print-from').value;
+        const toD = document.getElementById('print-to').value;
+        
+        if (fromD || toD) {
+            let filtered = [...readings];
+            if(fromD) filtered = filtered.filter(r => new Date(r.date) >= new Date(fromD));
+            if(toD) filtered = filtered.filter(r => new Date(r.date) <= new Date(toD));
+            
+            const orig = readings;
+            renderTable(filtered); // Update table for print
+            renderCharts(filtered); // Update charts for print
+            updatePrintSummary();
+            
+            setTimeout(() => {
+                window.print();
+                renderTable(orig); 
+                renderCharts(orig);
+                togglePrintMode();
+            }, 800);
+        } else {
+            window.print();
+            togglePrintMode();
+        }
+    }
+
+    // Init
+    window.onload = () => {
+        loadData();
+    };
+
+</script>
+</body>
+</html>
